@@ -33,8 +33,34 @@ func main() {
         wakeUpLength = time.Minute * 2
 
 
-        setLightBrightness(1)
-        for {
+        light.DutyCycle(32, 32)
+        waitForAlarms()
+}
+
+func example() {
+        err := rpio.Open()
+        if err != nil {
+                os.Exit(1)
+        }
+        defer rpio.Close()
+
+        pin := rpio.Pin(19)
+        pin.Mode(rpio.Pwm)
+        pin.Freq(64000)
+        pin.DutyCycle(0, 32)
+        // the LED will be blinking at 2000Hz
+        // (source frequency divided by cycle length => 64000/32 = 2000)
+
+        // five times smoothly fade in and out
+        for i := 0; i < 5; i++ {
+                for i := uint32(0); i < 32; i++ { // increasing brightness
+                        pin.DutyCycle(i, 32)
+                        time.Sleep(time.Second/32)
+                }
+                for i := uint32(32); i > 0; i-- { // decreasing brightness
+                        pin.DutyCycle(i, 32)
+                        time.Sleep(time.Second/32)
+                }
         }
 }
 
@@ -79,12 +105,11 @@ func initHardware() {
                 os.Exit(1)
         }
 
-        light := rpio.Pin(19)
+        light = rpio.Pin(19)
         light.Mode(rpio.Pwm)
         //Pi supports down to 4688Hz, dimmer supports up to 10kHz
         //Roughly split the difference so everyones in a comfortable range
         light.Freq(7500)
-        setLightBrightness(0)
 }
 
 //Sets the brightness of the light with 1 being full on
