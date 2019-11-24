@@ -13,7 +13,7 @@ import (
 var light rpio.Pin
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
 var wakeUpLength time.Duration = time.Hour
-var onBrightness float64 = 1
+var onBrightness float64 = .25
 var on bool = false
 
 var server http.Server
@@ -29,11 +29,11 @@ func main() {
 
         start := time.Now()
         //TODO this is only for testing
-        startTimes[start.Weekday()] = start.Sub(getStartOfDay(start)) + time.Minute
-        wakeUpLength = time.Minute * 2
+        startTimes[start.Weekday()] = start.Sub(getStartOfDay(start)) + time.Minute / 2
+        wakeUpLength = time.Minute
 
 
-        light.DutyCycle(32, 32)
+        light.DutyCycle(0, 32)
         waitForAlarms()
 }
 
@@ -62,12 +62,13 @@ func example() {
                         time.Sleep(time.Second/32)
                 }
         }
+        pin.DutyCycle(0, 32)
 }
 
 func waitForAlarms() {
         clock := time.NewTicker(time.Second)
         for now := range(clock.C) {
-                fmt.Println(now)
+                fmt.Println("now ", now, " on ", on)
                 if !on {
                         fmt.Println(now.Weekday())
                         alarm := startTimes[now.Weekday()]
@@ -77,11 +78,13 @@ func waitForAlarms() {
                                 difference := now.Sub(alarmTime)
                                 fmt.Println("difference", difference)
                                 fmt.Println("difference < wakeUpLength", difference < wakeUpLength)
-                                if difference < wakeUpLength && difference > 0{
-                                        setLightBrightness(float64(difference) / float64(wakeUpLength))
-                                } else {
-                                        on = true
-                                        setLightBrightness(1)
+                                if difference > 0 {
+                                        if difference < wakeUpLength {
+                                                setLightBrightness(float64(difference) / float64(wakeUpLength))
+                                        } else {
+                                                on = true
+                                                setLightBrightness(1)
+                                        }
                                 }
                         }
                 }
@@ -100,6 +103,7 @@ func initServer() {
 }
 
 func initHardware() {
+        setLightBrightness(0)
         err := rpio.Open()
         if err != nil {
                 os.Exit(1)
@@ -109,15 +113,17 @@ func initHardware() {
         light.Mode(rpio.Pwm)
         //Pi supports down to 4688Hz, dimmer supports up to 10kHz
         //Roughly split the difference so everyones in a comfortable range
-        light.Freq(7500)
+        light.Freq(10000)
 }
 
 //Sets the brightness of the light with 1 being full on
 //and 0 being off.
 func setLightBrightness(brightness float64) {
+        var precision uint32 = 128
         fmt.Println("brightness", brightness)
-        fmt.Println("Brightness to ", uint32(onBrightness * brightness * 32), "/32")
-        light.DutyCycle(uint32(onBrightness * brightness * 32), 32)
+        cycle := (uint32(onBrightness * brightness * float64(precision)) / 2) * 2
+        fmt.Println("Brightness to ", cycle , "/", precision)
+        light.DutyCycle(cycle, precision)
 }
 
 func closeHardware() {
