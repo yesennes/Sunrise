@@ -1,17 +1,20 @@
 export GOOS=linux
 export GOARCH=arm
-export GOARM=5
+export GOARM=6
+export TARGET=pi@lsenseney.com
+export TARGET_DIR=/home/pi/Downloads/psychic-pancake
+
 .PHONY: build
 build:
 	go build
 
 .PHONY: deploy
 deploy: build
-	scp psychic-pancake pi@lsenseney.com:/home/pi/Downloads/psychic-pancake
+	rsync psychic-pancake $(TARGET):$(TARGET_DIR)
 
 .PHONY: run
 run: deploy
-	ssh pi@lsenseney.com sudo /home/pi/Downloads/psychic-pancake
+	ssh $(TARGET) sudo $(TARGET_DIR)
 
 tags:
 	ctags -R .

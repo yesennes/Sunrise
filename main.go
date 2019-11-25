@@ -4,7 +4,7 @@ import (
         "os"
         "time"
         "github.com/stianeikeland/go-rpio"
-        //"bufio"
+        "bufio"
         "fmt"
         "github.com/gorilla/mux"
         "net/http"
@@ -14,6 +14,7 @@ var light rpio.Pin
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
 var wakeUpLength time.Duration = time.Hour
 var onBrightness float64 = .25
+var minBrightness float64 = .1
 var on bool = false
 
 var server http.Server
@@ -34,35 +35,18 @@ func main() {
 
 
         light.DutyCycle(0, 32)
-        waitForAlarms()
+        //waitForAlarms()
+        test()
 }
 
-func example() {
-        err := rpio.Open()
-        if err != nil {
-                os.Exit(1)
+func test() {
+        reader := bufio.NewReader(os.Stdin)
+        for i := uint32(0); i < 64; i++ {
+                fmt.Println(i)
+                light.DutyCycle(i, 64)
+                reader.ReadString('\n')
         }
-        defer rpio.Close()
-
-        pin := rpio.Pin(19)
-        pin.Mode(rpio.Pwm)
-        pin.Freq(64000)
-        pin.DutyCycle(0, 32)
-        // the LED will be blinking at 2000Hz
-        // (source frequency divided by cycle length => 64000/32 = 2000)
-
-        // five times smoothly fade in and out
-        for i := 0; i < 5; i++ {
-                for i := uint32(0); i < 32; i++ { // increasing brightness
-                        pin.DutyCycle(i, 32)
-                        time.Sleep(time.Second/32)
-                }
-                for i := uint32(32); i > 0; i-- { // decreasing brightness
-                        pin.DutyCycle(i, 32)
-                        time.Sleep(time.Second/32)
-                }
-        }
-        pin.DutyCycle(0, 32)
+        light.DutyCycle(0, 32)
 }
 
 func waitForAlarms() {
@@ -113,15 +97,15 @@ func initHardware() {
         light.Mode(rpio.Pwm)
         //Pi supports down to 4688Hz, dimmer supports up to 10kHz
         //Roughly split the difference so everyones in a comfortable range
-        light.Freq(10000)
+        light.Freq(125056)
 }
 
 //Sets the brightness of the light with 1 being full on
 //and 0 being off.
 func setLightBrightness(brightness float64) {
-        var precision uint32 = 128
+        var precision uint32 = 64
         fmt.Println("brightness", brightness)
-        cycle := (uint32(onBrightness * brightness * float64(precision)) / 2) * 2
+        cycle := uint32(onBrightness * brightness * float64(precision))
         fmt.Println("Brightness to ", cycle , "/", precision)
         light.DutyCycle(cycle, precision)
 }
