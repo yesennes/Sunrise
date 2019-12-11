@@ -23,6 +23,12 @@ var on bool = false
 var server http.Server
 
 func main() {
+    if len(os.Args) > 1 {
+        LoadConfig(os.Args[1])
+    } else {
+        LoadConfig("/etc/Sunrise.yaml")
+    }
+
     defer closeHardware()
     defer closeServer()
 
@@ -31,15 +37,14 @@ func main() {
 
     initServer()
 
-    start := time.Now()
     //TODO this is only for testing
-    startTimes[start.Weekday()] = start.Sub(getStartOfDay(start)) + time.Minute / 2
-    wakeUpLength = time.Minute
+    //start := time.Now()
+    //startTimes[start.Weekday()] = start.Sub(getStartOfDay(start)) + time.Minute / 2
+    //wakeUpLength = time.Minute
 
 
-    light.DutyCycle(0, 32)
-    //waitForAlarms()
-    test()
+    waitForAlarms()
+    //test()
 }
 
 func test() {
@@ -55,16 +60,12 @@ func test() {
 func waitForAlarms() {
     clock := time.NewTicker(time.Second)
     for now := range(clock.C) {
-        fmt.Println("now ", now, " on ", on)
         if !on {
             fmt.Println(now.Weekday())
             alarm := startTimes[now.Weekday()]
-            fmt.Println("Start time", int(alarm.Hours()), ":", int(alarm.Minutes()) % 60, ":", int(alarm.Seconds()) % 60)
             if (alarm >  0) {
                 alarmTime := getStartOfDay(now).Add(alarm)
                 difference := now.Sub(alarmTime)
-                fmt.Println("difference", difference)
-                fmt.Println("difference < wakeUpLength", difference < wakeUpLength)
                 if difference > 0 {
                     if difference < wakeUpLength {
                         setLightBrightness(float64(difference) / float64(wakeUpLength))
@@ -86,6 +87,7 @@ func getStartOfDay(t time.Time) time.Time {
 func initServer() {
     router := mux.NewRouter()
     router.HandleFunc("/alarm/{day:[0-6]}", DayAlarmHandler)
+    router.HandleFunc("/light", DayAlarmHandler)
 
     server = http.Server{Addr:"0.0.0.0:5445", Handler: router}
 
@@ -106,6 +108,7 @@ func DayAlarmHandler(response http.ResponseWriter, request *http.Request){
         err = json.NewDecoder(request.Body).Decode(&body)
         if err != nil {
             http.Error(response, err.Error(), http.StatusBadRequest)
+            fmt.Println(err)
             return
         }
 
@@ -115,33 +118,53 @@ func DayAlarmHandler(response http.ResponseWriter, request *http.Request){
         startTimes[day] = time.Duration(hour)  * time.Hour + time.Duration(minute) * time.Minute
         fmt.Println(day, " set to:", startTimes[day])
     }
+}
 
+func LightHandler(response http.ResponseWriter, request *http.Request) {
+    if request.Method == "PUT" {
+        var body struct {
+            On bool
+        }
+
+        err := json.NewDecoder(request.Body).Decode(&body)
+        if err != nil {
+            http.Error(response, err.Error(), http.StatusBadRequest)
+            fmt.Println(err)
+            return
+        }
+        fmt.Println("Light set to:", body.On)
+        on = body.On
+    }
 }
 
 func initHardware() {
     setLightBrightness(0)
-    err := rpio.Open()
-    if err != nil {
-        os.Exit(1)
+    if !Settings.Mock {
+        err := rpio.Open()
+        FatalErrorCheck(err)
+        light = rpio.Pin(19)
+        light.Mode(rpio.Pwm)
+        //Pi supports down to 4688Hz, dimmer supports up to 10kHz
+        //Roughly split the difference so everyones in a comfortable range
+        light.Freq(125056)
     }
-
-    light = rpio.Pin(19)
-    light.Mode(rpio.Pwm)
-    //Pi supports down to 4688Hz, dimmer supports up to 10kHz
-    //Roughly split the difference so everyones in a comfortable range
-    light.Freq(125056)
 }
 
 //Sets the brightness of the light with 1 being full on
 //and 0 being off.
 func setLightBrightness(brightness float64) {
+    fmt.Println("Brightness to ", brightness)
     var precision uint32 = 64
     cycle := uint32(onBrightness * brightness * float64(precision))
-    light.DutyCycle(cycle, precision)
+    if !Settings.Mock {
+        light.DutyCycle(cycle, precision)
+    }
 }
 
 func closeHardware() {
-    rpio.Close()
+    if !Settings.Mock {
+        rpio.Close()
+    }
 }
 
 func closeServer() {

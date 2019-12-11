@@ -1,15 +1,22 @@
-export GOOS=linux
-export GOARCH=arm
-export GOARM=6
 export TARGET=pi@lsenseney.com
-export TARGET_DIR=/home/pi/Downloads/psychic-pancake
+export TARGET_DIR=/home/pi/Downloads/sunrise
 
 .PHONY: build
-build:
+build: tags
 	go build
 
+.PHONY: build
+buildpi: GOOS=linux GOARCH=arm GOARM=6
+buildpi: tags
+	go build
+
+.PHONY: runlocal
+runlocal: build
+	./Sunrise config.yaml
+
+
 .PHONY: deploy
-deploy: build
+deploy: buildpi
 	rsync psychic-pancake $(TARGET):$(TARGET_DIR)
 
 .PHONY: run
@@ -17,4 +24,4 @@ run: deploy
 	ssh $(TARGET) sudo $(TARGET_DIR)
 
 tags:
-	ctags -R .
+	(ctags -R . &)
