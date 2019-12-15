@@ -7,5 +7,5 @@ rest:
 mqtt:
     enabled: true
     broker: raspberrypi.local:1883
-    prefix: sunrise-mock
-    clientid: sunrise-mock-dev
+    prefix: sunrise
+    clientid: sunrise

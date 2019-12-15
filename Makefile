@@ -1,4 +1,4 @@
-export TARGET=pi@lsenseney.com
+export TARGET=pi@raspberrypi.local
 export TARGET_DIR=/home/pi/Downloads/sunrise
 
 .PHONY: build
@@ -13,6 +13,9 @@ buildpi: tags
 .PHONY: runlocal
 runlocal: build
 	./Sunrise config.yaml
+
+debuglocal: build
+	dlv exec ./Sunrise config.yaml
 
 
 .PHONY: deploy
