@@ -1,8 +1,0 @@
-mock: true
-
-rest:
-    enabled: true
-    port: 5445
-
-MQTT:
-    enabled: false
