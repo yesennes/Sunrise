@@ -11,6 +11,7 @@ import (
     "github.com/gorilla/mux"
     "net/http"
     "strconv"
+    "gobot.io/x/gobot/platforms/mqtt"
 )
 
 var light rpio.Pin
@@ -19,6 +20,7 @@ var wakeUpLength time.Duration = time.Hour
 var onBrightness float64 = .25
 var minBrightness float64 = .1
 var on bool = false
+var mqttAdaptor *mqtt.Adaptor
 
 var server http.Server
 
@@ -35,7 +37,12 @@ func main() {
     initHardware()
     fmt.Println("Hardware initialized")
 
-    initServer()
+    if Settings.Rest.Enabled {
+        initServer()
+    }
+    if Settings.Mqtt.Enabled {
+        initMQTT()
+    }
 
     //TODO this is only for testing
     //start := time.Now()
@@ -61,7 +68,6 @@ func waitForAlarms() {
     clock := time.NewTicker(time.Second)
     for now := range(clock.C) {
         if !on {
-            fmt.Println(now.Weekday())
             alarm := startTimes[now.Weekday()]
             if (alarm >  0) {
                 alarmTime := getStartOfDay(now).Add(alarm)
@@ -89,13 +95,31 @@ func initServer() {
     router.HandleFunc("/alarm/{day:[0-6]}", DayAlarmHandler)
     router.HandleFunc("/light", DayAlarmHandler)
 
-    server = http.Server{Addr:"0.0.0.0:5445", Handler: router}
+    server = http.Server{Addr:"0.0.0.0:" + strconv.Itoa(Settings.Rest.Port), Handler: router}
 
     go func() {
         if err := server.ListenAndServe(); err != nil {
             fmt.Println(err)
         }
     }()
+}
+
+func initMQTT() {
+    fmt.Println("MQTT starting")
+    mqttAdaptor = mqtt.NewAdaptor(Settings.Mqtt.Broker, Settings.Mqtt.ClientID)
+    mqttAdaptor.Connect()
+
+    _, err := mqttAdaptor.OnWithQOS(Settings.Mqtt.Prefix + "/on", 1, func(msg mqtt.Message) {
+        fmt.Println("Got on message")
+        if msg.Payload()[0] != 0 && msg.Payload()[0] != '0' {
+            SetOn(true)
+        } else {
+            SetOn(false)
+        }
+        msg.Ack()
+    })
+    FatalErrorCheck(err)
+    fmt.Println("MQTT started")
 }
 
 func DayAlarmHandler(response http.ResponseWriter, request *http.Request){
@@ -132,9 +156,13 @@ func LightHandler(response http.ResponseWriter, request *http.Request) {
             fmt.Println(err)
             return
         }
-        fmt.Println("Light set to:", body.On)
-        on = body.On
+        SetOn(body.On)
     }
+}
+
+func SetOn(on bool) {
+    fmt.Println("Light set to:", on)
+    on = on
 }
 
 func initHardware() {

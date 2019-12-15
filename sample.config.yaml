@@ -1,0 +1,11 @@
+mock: false
+
+rest:
+    enabled: false
+    port: 5445
+
+mqtt:
+    enabled: true
+    broker: raspberrypi.local:1883
+    prefix: sunrise-mock
+    clientid: sunrise-mock-dev
