@@ -14,14 +14,17 @@ import (
     "gobot.io/x/gobot/platforms/mqtt"
 )
 
-var light rpio.Pin
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
 var wakeUpLength time.Duration = time.Hour
 var onBrightness float64 = .25
 var minBrightness float64 = .1
-var on bool = false
-var mqttAdaptor *mqtt.Adaptor
 
+var on bool = false
+var alarmInProgress bool = false
+var currentBrightness float64 = -1
+
+var light rpio.Pin
+var mqttAdaptor *mqtt.Adaptor
 var server http.Server
 
 func main() {
@@ -32,23 +35,18 @@ func main() {
     }
 
     defer closeHardware()
-    defer closeServer()
 
     initHardware()
     fmt.Println("Hardware initialized")
 
     if Settings.Rest.Enabled {
         initServer()
+        defer closeServer()
     }
     if Settings.Mqtt.Enabled {
         initMQTT()
+        defer mqttAdaptor.Disconnect()
     }
-
-    //TODO this is only for testing
-    //start := time.Now()
-    //startTimes[start.Weekday()] = start.Sub(getStartOfDay(start)) + time.Minute / 2
-    //wakeUpLength = time.Minute
-
 
     waitForAlarms()
     //test()
@@ -69,18 +67,25 @@ func waitForAlarms() {
     for now := range(clock.C) {
         if !on {
             alarm := startTimes[now.Weekday()]
-            if (alarm >  0) {
+            if (alarm < 0) {
+                setLightBrightness(0)
+            } else {
                 alarmTime := getStartOfDay(now).Add(alarm)
                 difference := now.Sub(alarmTime)
                 if difference > 0 {
                     if difference < wakeUpLength {
                         setLightBrightness(float64(difference) / float64(wakeUpLength))
-                    } else {
+                        alarmInProgress = true
+                    } else if alarmInProgress {
                         on = true
-                        setLightBrightness(1)
+                        alarmInProgress = false
                     }
+                } else {
+                    setLightBrightness(0)
                 }
             }
+        } else {
+            setLightBrightness(1)
         }
     }
 }
@@ -109,14 +114,27 @@ func initMQTT() {
     mqttAdaptor = mqtt.NewAdaptor(Settings.Mqtt.Broker, Settings.Mqtt.ClientID)
     mqttAdaptor.Connect()
 
-    _, err := mqttAdaptor.OnWithQOS(Settings.Mqtt.Prefix + "/on", 1, func(msg mqtt.Message) {
-        fmt.Println("Got on message")
+    prefix := Settings.Mqtt.Prefix
+
+    _, err := mqttAdaptor.OnWithQOS(prefix + "/on", 1, func(msg mqtt.Message) {
         if msg.Payload()[0] != 0 && msg.Payload()[0] != '0' {
             SetOn(true)
         } else {
             SetOn(false)
         }
         msg.Ack()
+    })
+    FatalErrorCheck(err)
+
+    _, err = mqttAdaptor.OnWithQOS(prefix + "/alarm/+", 1, func(msg mqtt.Message) {
+        topic := strings.Split(msg.Topic(), "/")
+        day, _ := strconv.Atoi(topic[len(topic) - 2])
+        SetAlarm(day, string(msg.Payload()))
+    })
+    FatalErrorCheck(err)
+
+    _, err = mqttAdaptor.OnWithQOS(prefix + "/wake-up-length", 1, func(msg mqtt.Message) {
+        SetWakeUpLength(string(msg.Payload()))
     })
     FatalErrorCheck(err)
     fmt.Println("MQTT started")
@@ -136,11 +154,7 @@ func DayAlarmHandler(response http.ResponseWriter, request *http.Request){
             return
         }
 
-        alarm := strings.Split(body.Time, ":")
-        hour, err := strconv.Atoi(alarm[0])
-        minute, err := strconv.Atoi(alarm[1])
-        startTimes[day] = time.Duration(hour)  * time.Hour + time.Duration(minute) * time.Minute
-        fmt.Println(day, " set to:", startTimes[day])
+        SetAlarm(day, body.Time)
     }
 }
 
@@ -158,6 +172,24 @@ func LightHandler(response http.ResponseWriter, request *http.Request) {
         }
         SetOn(body.On)
     }
+}
+
+func SetWakeUpLength(input string) {
+    wakeUpLength, _ = time.ParseDuration(input)
+    fmt.Println("Wake up length set to " + wakeUpLength.String())
+}
+
+func SetAlarm(day int, input string) {
+    alarm := strings.Split(input, ":")
+    hour, _ := strconv.Atoi(alarm[0])
+    minute, _ := strconv.Atoi(alarm[1])
+    startTimes[day] = time.Duration(hour)  * time.Hour + time.Duration(minute) * time.Minute
+    fmt.Println(day, " set to:", startTimes[day])
+}
+
+func SetOnPublish(on bool) {
+    SetOn(on)
+    mqttAdaptor.PublishWithQOS(
 }
 
 func SetOn(on bool) {
@@ -181,11 +213,14 @@ func initHardware() {
 //Sets the brightness of the light with 1 being full on
 //and 0 being off.
 func setLightBrightness(brightness float64) {
-    fmt.Println("Brightness to ", brightness)
-    var precision uint32 = 64
-    cycle := uint32(onBrightness * brightness * float64(precision))
-    if !Settings.Mock {
-        light.DutyCycle(cycle, precision)
+    if brightness != currentBrightness {
+        currentBrightness = brightness
+        fmt.Println("Brightness to ", brightness)
+        var precision uint32 = 64
+        cycle := uint32(onBrightness * brightness * float64(precision))
+        if !Settings.Mock {
+            light.DutyCycle(cycle, precision)
+        }
     }
 }
 
