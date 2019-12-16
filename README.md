@@ -29,3 +29,25 @@ as a service will be supported eventually.
 
 The default directory for the config file is `/etc/Sunrise.yaml`, though it can be specified
 as the only command line argument.
+
+## MQTT Support
+
+All topics are prefixed with the prefix specified in the config file. You might sets this to
+`sunrise` or if your whole family uses Sunrises, `sunrise/asher`.
+
+### Topics
+
+```[prefix]/on```
+
+Turns the machine off it it recieves the 0 bit or the "0" character. Published on when
+the device changes its state, i.e. for button.
+
+```
+[prefix]/alarm/[dayOfWeek]
+```
+
+Sets the end time of the alarm for the day of week, with 0 being Sunday and 6 being Friday
+
+```[prefix]/wake-up-length```
+
+Time before the alarm to begin the wake up. Takes a string like "1h30m", "15m" or "1h"

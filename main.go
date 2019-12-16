@@ -49,7 +49,6 @@ func main() {
     }
 
     waitForAlarms()
-    //test()
 }
 
 func test() {
@@ -77,7 +76,7 @@ func waitForAlarms() {
                         setLightBrightness(float64(difference) / float64(wakeUpLength))
                         alarmInProgress = true
                     } else if alarmInProgress {
-                        on = true
+                        SetOnPublish(true)
                         alarmInProgress = false
                     }
                 } else {
@@ -189,7 +188,7 @@ func SetAlarm(day int, input string) {
 
 func SetOnPublish(on bool) {
     SetOn(on)
-    mqttAdaptor.PublishWithQOS(
+    mqttAdaptor.PublishWithQOS(Settings.Mqtt.Prefix + "/on", 1, []byte{'0'})
 }
 
 func SetOn(on bool) {
