@@ -17,11 +17,9 @@ var server http.Server
 func initApi() {
     if Settings.Rest.Enabled {
         initServer()
-        defer closeServer()
     }
     if Settings.Mqtt.Enabled {
         initMQTT()
-        defer mqttAdaptor.Disconnect()
     }
 }
 
@@ -51,11 +49,12 @@ func initServer() {
 func initMQTT() {
     fmt.Println("MQTT starting")
     mqttAdaptor = mqtt.NewAdaptor(Settings.Mqtt.Broker, Settings.Mqtt.ClientID)
-    mqttAdaptor.Connect()
+    err := mqttAdaptor.Connect()
+    FatalErrorCheck(err)
 
     prefix := Settings.Mqtt.Prefix
 
-    _, err := mqttAdaptor.OnWithQOS(prefix + "/on", 1, func(msg mqtt.Message) {
+    _, err = mqttAdaptor.OnWithQOS(prefix + "/on", 1, func(msg mqtt.Message) {
         if msg.Payload()[0] != 0 && msg.Payload()[0] != '0' {
             SetOn(true)
         } else {
@@ -67,7 +66,10 @@ func initMQTT() {
 
     _, err = mqttAdaptor.OnWithQOS(prefix + "/alarm/+", 1, func(msg mqtt.Message) {
         topic := strings.Split(msg.Topic(), "/")
-        day, _ := strconv.Atoi(topic[len(topic) - 2])
+        day, err := strconv.Atoi(topic[len(topic) - 1])
+        if ErrorCheck(err) {
+            return
+        }
         SetAlarm(day, string(msg.Payload()))
     })
     FatalErrorCheck(err)
@@ -115,7 +117,13 @@ func LightHandler(response http.ResponseWriter, request *http.Request) {
 
 func SetOnPublish(on bool) {
     SetOn(on)
-    mqttAdaptor.PublishWithQOS(Settings.Mqtt.Prefix + "/on", 1, []byte{'0'})
+    var toPub []byte
+    if on {
+        toPub = []byte{'1'}
+    } else {
+        toPub = []byte{'0'}
+    }
+    mqttAdaptor.PublishWithQOS(Settings.Mqtt.Prefix + "/on", 1, toPub)
 }
 
 func closeServer() {

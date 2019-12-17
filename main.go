@@ -60,7 +60,7 @@ func waitForAlarms() {
                     todayAlarm = getStartOfDay(now).Add(alarm)
                     alarmInProgress = true
                 }
-                if button.Read() == rpio.High || checkButtonFallingEdge() {
+                if buttonPressed() || checkButtonFallingEdge() {
                     todayAlarm = todayAlarm.Add(time.Minute)
                 }
                 difference := now.Sub(todayAlarm)
@@ -140,6 +140,9 @@ func setLightBrightness(brightness float64) {
     if brightness != currentBrightness {
         currentBrightness = brightness
         fmt.Println("Brightness to ", brightness)
+        if brightness > 0 || brightness < minBrightness {
+            brightness = minBrightness
+        }
         var precision uint32 = 120
         cycle := uint32(onBrightness * brightness * float64(precision))
         if !Settings.Mock {
@@ -154,7 +157,17 @@ func closeHardware() {
     }
 }
 
+func buttonPressed() bool {
+    if !Settings.Mock {
+        return button.Read() == rpio.High
+    }
+    return false
+}
+
 func checkButtonFallingEdge() bool {
-    edge := button.EdgeDetected()
-    return edge
+    if !Settings.Mock {
+        edge := button.EdgeDetected()
+        return edge
+    }
+    return false
 }
