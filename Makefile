@@ -5,10 +5,12 @@ export TARGET_DIR=/home/pi/Downloads/sunrise
 build: tags
 	go build
 
-.PHONY: build
-buildpi: GOOS=linux GOARCH=arm GOARM=6
+.PHONY: buildpi
+buildpi: export GOOS=linux
+buildpi: export GOARCH=arm
+buildpi: export GOARM=6
 buildpi: tags
-	go build
+	go build -o PiSunrise
 
 .PHONY: runlocal
 runlocal: build
@@ -20,7 +22,7 @@ debuglocal: build
 
 .PHONY: deploy
 deploy: buildpi
-	rsync psychic-pancake $(TARGET):$(TARGET_DIR)
+	rsync PiSunrise $(TARGET):$(TARGET_DIR)
 
 .PHONY: run
 run: deploy
@@ -28,3 +30,8 @@ run: deploy
 
 tags:
 	(ctags -R . &)
+
+clean:
+	-rm Sunrise
+	-rm PiSunrise
+	-rm tags

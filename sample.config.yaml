@@ -1,4 +1,6 @@
 mock: false
+lightpin: 19
+buttonpin: 4
 
 rest:
     enabled: false

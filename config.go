@@ -7,6 +7,8 @@ import (
 
 type Config struct {
     Mock bool
+    LightPin int
+    ButtonPin int
     Rest struct {
         Enabled bool
         Port int
