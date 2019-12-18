@@ -3,6 +3,7 @@ package main
 import (
     "gopkg.in/yaml.v2"
     "os"
+    "fmt"
 )
 
 type Config struct {
@@ -26,8 +27,10 @@ var Settings Config
 func LoadConfig(location string) {
     file, err := os.Open(location)
     FatalErrorCheck(err)
+    fmt.Println("File read")
     decoder := yaml.NewDecoder(file)
     decoder.SetStrict(true)
     err = decoder.Decode(&Settings)
     FatalErrorCheck(err)
+    fmt.Println("Config read")
 }

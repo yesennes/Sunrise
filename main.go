@@ -24,9 +24,12 @@ var light rpio.Pin
 var button rpio.Pin
 
 func main() {
+    fmt.Println("Starting Sunrise")
     if len(os.Args) > 1 {
+        fmt.Println("Loading from " + os.Args[1])
         LoadConfig(os.Args[1])
     } else {
+        fmt.Println("Loading from /etc/Sunrise.yaml")
         LoadConfig("/etc/Sunrise.yaml")
     }
 
