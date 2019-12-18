@@ -46,7 +46,8 @@ the device changes its state, i.e. for button.
 [prefix]/alarm/[dayOfWeek]
 ```
 
-Sets the end time of the alarm for the day of week, with 0 being Sunday and 6 being Friday
+Sets the end time of the alarm for the day of week, with 0 being Sunday and 6 being Friday.
+Takes a string like "9:00" or "21:00"
 
 ```[prefix]/wake-up-length```
 
