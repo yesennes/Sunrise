@@ -33,6 +33,7 @@ func closeApi() {
 }
 
 func initServer() {
+    fmt.Println("Starting api")
     router := mux.NewRouter()
     router.HandleFunc("/alarm/{day:[0-6]}", dayAlarmHandler)
     router.HandleFunc("/light", dayAlarmHandler)

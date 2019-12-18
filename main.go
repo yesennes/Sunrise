@@ -39,6 +39,7 @@ func main() {
     fmt.Println("Hardware initialized")
 
     initApi()
+    fmt.Println("Api started")
 
     waitForAlarms()
 }
