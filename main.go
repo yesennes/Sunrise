@@ -144,12 +144,13 @@ func setLightBrightness(brightness float64) {
     if brightness != currentBrightness {
         currentBrightness = brightness
         fmt.Println("Brightness to ", brightness)
-        if brightness > 0 || brightness < minBrightness {
+        if brightness > 0 && brightness < minBrightness {
             brightness = minBrightness
         }
         var precision uint32 = 120
         cycle := uint32(onBrightness * brightness * float64(precision))
         if !Settings.Mock {
+            fmt.Println("Duty to ", cycle , " / ", precision)
             light.DutyCycle(cycle, precision)
         }
     }
