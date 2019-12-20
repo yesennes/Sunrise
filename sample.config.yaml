@@ -2,6 +2,9 @@ mock: false
 lightpin: 19
 buttonpin: 4
 
+# Set to -1 for no zerocross
+zerocrosspin: 5
+
 rest:
     enabled: false
     port: 5445

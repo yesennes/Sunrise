@@ -10,6 +10,7 @@ type Config struct {
     Mock bool
     LightPin int
     ButtonPin int
+    ZeroCrossPin int
     Rest struct {
         Enabled bool
         Port int

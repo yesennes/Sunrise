@@ -13,8 +13,8 @@ import (
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
 var todayAlarm time.Time
 var wakeUpLength time.Duration = time.Hour
-var onBrightness float64 = .25
-var minBrightness float64 = .1
+var onBrightness float64 = .02
+var minBrightness float64 = 0
 
 var on bool = false
 var alarmInProgress bool = false
@@ -22,6 +22,7 @@ var currentBrightness float64 = -1
 
 var light rpio.Pin
 var button rpio.Pin
+var zerocross rpio.Pin
 
 func main() {
     fmt.Println("Starting Sunrise")
@@ -67,7 +68,7 @@ func waitForAlarms() {
                 if buttonPressed() || checkButtonFallingEdge() {
                     todayAlarm = todayAlarm.Add(time.Minute)
                 }
-                difference := now.Sub(todayAlarm)
+                difference := todayAlarm.Sub(now)
                 if difference > 0 {
                     if difference < wakeUpLength {
                         setLightBrightness(float64(difference) / float64(wakeUpLength))
@@ -125,13 +126,29 @@ func initHardware() {
         button.Mode(rpio.Input)
         button.Pull(rpio.PullDown)
         button.Detect(rpio.FallEdge)
+
+        if Settings.ZeroCrossPin >= 0 {
+            zerocross = rpio.Pin(Settings.ZeroCrossPin)
+            zerocross.Mode(rpio.Input)
+            zerocross.Detect(rpio.FallEdge)
+            zerocross.Pull(rpio.PullDown)
+            fmt.Println("Zero cross ", Settings.ZeroCrossPin)
+        }
     }
     go func() {
         ticker := time.NewTicker(time.Second / 60)
         for _ = range(ticker.C) {
-            if (!alarmInProgress && checkButtonFallingEdge()) {
-                fmt.Println("Button pressed")
-                SetOnPublish(!on)
+            //if (!alarmInProgress && checkButtonFallingEdge()) {
+            //    fmt.Println("Button pressed")
+            //    SetOnPublish(!on)
+            //}
+            fmt.Println("Zerocross read", zerocross.Read())
+            if zerocross.EdgeDetected() {
+                fmt.Println("Zerocross edge", zerocross.EdgeDetected())
+            }
+            fmt.Println("button read", button.Read())
+            if button.EdgeDetected() {
+                fmt.Println("button edge", button.EdgeDetected())
             }
         }
     }()
