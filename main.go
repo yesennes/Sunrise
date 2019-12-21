@@ -8,6 +8,7 @@ import (
     "fmt"
     "bufio"
     "strconv"
+    "os/exec"
 )
 
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
@@ -26,6 +27,10 @@ var zerocross rpio.Pin
 
 func main() {
     fmt.Println("Starting Sunrise")
+    if !checkIfRoot() {
+        fmt.Println("Please run as root")
+        os.Exit(1)
+    }
     if len(os.Args) > 1 {
         fmt.Println("Loading from " + os.Args[1])
         LoadConfig(os.Args[1])
@@ -142,11 +147,16 @@ func initHardware() {
             //    fmt.Println("Button pressed")
             //    SetOnPublish(!on)
             //}
-            fmt.Println("Zerocross read", zerocross.Read())
-            if zerocross.EdgeDetected() {
-                fmt.Println("Zerocross edge", zerocross.EdgeDetected())
+
+            if zerocross.Read() == rpio.High {
+                fmt.Println("Zerocross read", zerocross.Read())
             }
-            fmt.Println("button read", button.Read())
+            if zerocross.EdgeDetected() {
+                fmt.Println("Zerocross edge")
+            }
+            if button.Read() == rpio.High {
+                fmt.Println("button read", button.Read())
+            }
             if button.EdgeDetected() {
                 fmt.Println("button edge", button.EdgeDetected())
             }
@@ -192,4 +202,26 @@ func checkButtonFallingEdge() bool {
         return edge
     }
     return false
+}
+
+func checkIfRoot() bool {
+    if Settings.Mock {
+        return true
+    }
+    cmd := exec.Command("id", "-u")
+    output, err := cmd.Output()
+
+    FatalErrorCheck(err)
+
+    // output has trailing \n
+    // need to remove the \n
+    // otherwise it will cause error for strconv.Atoi
+    // log.Println(output[:len(output)-1])
+
+    // 0 = root, 501 = non-root user
+    i, err := strconv.Atoi(string(output[:len(output)-1]))
+
+    FatalErrorCheck(err)
+
+    return i == 0
 }

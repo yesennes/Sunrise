@@ -1,4 +1,4 @@
-export TARGET=pi@raspberrypi.local
+export TARGET=pi@10.0.0.129
 export TARGET_DIR=/home/pi/Downloads/sunrise
 
 .PHONY: build
