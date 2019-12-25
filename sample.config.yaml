@@ -1,9 +1,10 @@
 mock: false
 lightpin: 19
 buttonpin: 4
+pullup: true
 
 # Set to -1 for no zerocross
-zerocrosspin: 5
+zerocrosspin: -1
 
 rest:
     enabled: false

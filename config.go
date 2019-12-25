@@ -8,9 +8,13 @@ import (
 
 type Config struct {
     Mock bool
+
     LightPin int
     ButtonPin int
     ZeroCrossPin int
+
+    PullUp bool
+
     Rest struct {
         Enabled bool
         Port int

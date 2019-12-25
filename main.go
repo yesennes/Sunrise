@@ -124,32 +124,40 @@ func initHardware() {
 
         button = rpio.Pin(Settings.ButtonPin)
         button.Mode(rpio.Input)
-        button.Pull(rpio.PullDown)
+	if Settings.PullUp {
+		button.Pull(rpio.PullUp)
+	} else {
+		button.Pull(rpio.PullDown)
+	}
         button.Detect(rpio.FallEdge)
 
         if Settings.ZeroCrossPin >= 0 {
             zerocross = rpio.Pin(Settings.ZeroCrossPin)
             zerocross.Mode(rpio.Input)
             zerocross.Detect(rpio.FallEdge)
-            zerocross.Pull(rpio.PullDown)
+	    if Settings.PullUp {
+		    zerocross.Pull(rpio.PullUp)
+	    } else {
+		    zerocross.Pull(rpio.PullDown)
+	    }
             fmt.Println("Zero cross ", Settings.ZeroCrossPin)
         }
     }
     go func() {
         ticker := time.NewTicker(time.Second / 60)
         for _ = range(ticker.C) {
-            //if (!alarmInProgress && checkButtonFallingEdge()) {
-            //    fmt.Println("Button pressed")
-            //    SetOnPublish(!on)
+            if (!alarmInProgress && checkButtonFallingEdge()) {
+                fmt.Println("Button pressed")
+                SetOnPublish(!on)
+            }
+            //fmt.Println("Zerocross read", zerocross.Read())
+            //if zerocross.EdgeDetected() {
+            //    fmt.Println("Zerocross edge", zerocross.EdgeDetected())
             //}
-            fmt.Println("Zerocross read", zerocross.Read())
-            if zerocross.EdgeDetected() {
-                fmt.Println("Zerocross edge", zerocross.EdgeDetected())
-            }
-            fmt.Println("button read", button.Read())
-            if button.EdgeDetected() {
-                fmt.Println("button edge", button.EdgeDetected())
-            }
+            //fmt.Println("button read", button.Read())
+            //if button.EdgeDetected() {
+            //    fmt.Println("button edge", button.EdgeDetected())
+            //}
         }
     }()
     setLightBrightness(0)
