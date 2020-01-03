@@ -79,6 +79,14 @@ func initMQTT() {
         SetWakeUpLength(string(msg.Payload()))
     })
     FatalErrorCheck(err)
+
+    _, err = mqttAdaptor.OnWithQOS(prefix + "/brightness", 1, func(msg mqtt.Message) {
+			bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
+		ErrorCheck(err)
+		SetOnBrightness(bright)
+    })
+    FatalErrorCheck(err)
+
     fmt.Println("MQTT started")
 }
 

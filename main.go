@@ -13,8 +13,8 @@ import (
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
 var todayAlarm time.Time
 var wakeUpLength time.Duration = time.Hour
-var onBrightness float64 = .02
-var minBrightness float64 = 0
+var onBrightness float64 = 1
+var startBrightness float64 = 0
 
 var on bool = false
 var alarmInProgress bool = false
@@ -114,6 +114,19 @@ func SetOn(newState bool) {
     }
 }
 
+func SetOnBrightness(brightness float64) {
+        onBrightness = brightness
+        fmt.Println("Brightness set to: ", brightness)
+        if on {
+                setLightBrightness(brightness)
+        }
+}
+
+func SetStartBrightness(brightness float64) {
+        startBrightness = brightness
+        fmt.Println("Start brightness set to: ", startBrightness)
+}
+
 func initHardware() {
     if !Settings.Mock {
         err := rpio.Open()
@@ -169,8 +182,8 @@ func setLightBrightness(brightness float64) {
     if brightness != currentBrightness {
         currentBrightness = brightness
         fmt.Println("Brightness to ", brightness)
-        if brightness > 0 && brightness < minBrightness {
-            brightness = minBrightness
+        if brightness > 0 && brightness < startBrightness {
+            brightness = startBrightness
         }
         var precision uint32 = 120
         cycle := uint32(onBrightness * brightness * float64(precision))
