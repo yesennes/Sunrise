@@ -157,21 +157,25 @@ func initHardware() {
         }
     }
     go func() {
-        ticker := time.NewTicker(time.Second / 60)
-        for _ = range(ticker.C) {
-            if (!alarmInProgress && checkButtonFallingEdge()) {
-                fmt.Println("Button pressed")
-                SetOnPublish(!on)
-            }
-            //fmt.Println("Zerocross read", zerocross.Read())
-            //if zerocross.EdgeDetected() {
-            //    fmt.Println("Zerocross edge", zerocross.EdgeDetected())
-            //}
-            //fmt.Println("button read", button.Read())
-            //if button.EdgeDetected() {
-            //    fmt.Println("button edge", button.EdgeDetected())
-            //}
-        }
+	    pressed := time.Now()
+	    ticker := time.NewTicker(time.Second / 60)
+	    for _ = range(ticker.C) {
+		    if (!alarmInProgress && checkButtonFallingEdge()) {
+			    if time.Now().Sub(pressed) > time.Second / 8 {
+				    fmt.Println("Button pressed")
+				    SetOnPublish(!on)
+			    }
+			    pressed = time.Now()
+		    }
+	    }
+	    //fmt.Println("Zerocross read", zerocross.Read())
+	    //if zerocross.EdgeDetected() {
+	    //    fmt.Println("Zerocross edge", zerocross.EdgeDetected())
+	    //}
+	    //fmt.Println("button read", button.Read())
+	    //if button.EdgeDetected() {
+	    //    fmt.Println("button edge", button.EdgeDetected())
+	    //}
     }()
     setLightBrightness(0)
 }
