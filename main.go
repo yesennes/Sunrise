@@ -83,10 +83,10 @@ func waitForAlarms() {
 			    } else {
 				    if alarmInProgress {
 					    SetOnPublish(true)
-					    alarmInProgress = false
 				    } else if debug{
 					    fmt.Println(-difference, " from alarm")
 				    }
+				    alarmInProgress = false
 			    }
 		    } else if debug {
 			    fmt.Println(difference, " to alarm")
