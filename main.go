@@ -20,6 +20,8 @@ var on bool = false
 var alarmInProgress bool = false
 var currentBrightness float64 = -1
 
+var lastFlip = time.Now()
+
 var light rpio.Pin
 var button rpio.Pin
 var zerocross rpio.Pin
@@ -103,6 +105,7 @@ func SetAlarm(day int, input string) {
 
 
 func SetOn(newState bool) {
+    lastFlip = time.Now()
     fmt.Println("Light set to:", newState)
     on = newState
     if !alarmInProgress {
@@ -157,15 +160,14 @@ func initHardware() {
         }
     }
     go func() {
-	    pressed := time.Now()
 	    ticker := time.NewTicker(time.Second / 60)
 	    for _ = range(ticker.C) {
 		    if (!alarmInProgress && checkButtonFallingEdge()) {
-			    if time.Now().Sub(pressed) > time.Second / 8 {
-				    fmt.Println("Button pressed")
+			    if time.Now().Sub(lastFlip) > time.Second / 4 {
+				    fmt.Println("Button lastFlip")
 				    SetOnPublish(!on)
 			    }
-			    pressed = time.Now()
+			    lastFlip = time.Now()
 		    }
 	    }
 	    //fmt.Println("Zerocross read", zerocross.Read())
