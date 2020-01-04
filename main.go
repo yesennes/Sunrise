@@ -68,9 +68,11 @@ func waitForAlarms() {
 	    alarm := startTimes[now.Weekday()]
 	    if alarm >= 0 {
 		    if !alarmInProgress {
-			    todayAlarm = getStartOfDay(now).Add(alarm)
-			    fmt.Println("Alarm set for ",  todayAlarm)
-			    alarmInProgress = true
+			    checkTodayAlarm := getStartOfDay(now).Add(alarm)
+			    if todayAlarm != checkTodayAlarm {
+				    todayAlarm = checkTodayAlarm
+				    fmt.Println("Alarm set for ",  todayAlarm)
+			    }
 		    }
 		    if buttonPressed() || checkButtonFallingEdge() {
 			    todayAlarm = todayAlarm.Add(time.Minute)
@@ -79,6 +81,7 @@ func waitForAlarms() {
 		    difference := todayAlarm.Sub(now)
 		    if difference > 0 {
 			    if difference < wakeUpLength {
+				    alarmInProgress = true
 				    setLightBrightness((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength))
 			    } else {
 				    if alarmInProgress {
@@ -89,6 +92,7 @@ func waitForAlarms() {
 				    alarmInProgress = false
 			    }
 		    } else if debug {
+			    alarmInProgress = false
 			    fmt.Println(difference, " to alarm")
 		    }
 	    } else if debug {
