@@ -59,6 +59,7 @@ func test() {
 
 func waitForAlarms() {
     clock := time.NewTicker(time.Second)
+    i := 0
     for now := range(clock.C) {
         if !on {
             alarm := startTimes[now.Weekday()]
@@ -69,6 +70,7 @@ func waitForAlarms() {
                 }
                 if buttonPressed() || checkButtonFallingEdge() {
                     todayAlarm = todayAlarm.Add(time.Minute)
+		    fmt.Println("Snoozing to ", todayAlarm)
                 }
                 difference := todayAlarm.Sub(now)
                 if difference > 0 {
@@ -78,9 +80,12 @@ func waitForAlarms() {
                         SetOnPublish(true)
                         alarmInProgress = false
                     }
-                }
+                } else if i % 60 == 0{
+			fmt.Println(difference, " to alarm")
+		}
             }
         }
+	i++
     }
 }
 
@@ -208,7 +213,7 @@ func closeHardware() {
 
 func buttonPressed() bool {
     if !Settings.Mock {
-        return button.Read() == rpio.High
+        return (button.Read() == rpio.High)  == !Settings.PullUp
     }
     return false
 }
