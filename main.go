@@ -62,6 +62,9 @@ func waitForAlarms() {
     i := 0
     for now := range(clock.C) {
 	    debug := i % 60 == 0
+	    if debug {
+		    fmt.Println("Time is ", now)
+	    }
 	    alarm := startTimes[now.Weekday()]
 	    if alarm >= 0 {
 		    if !alarmInProgress {
