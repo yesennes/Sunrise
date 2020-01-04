@@ -61,38 +61,37 @@ func waitForAlarms() {
     clock := time.NewTicker(time.Second)
     i := 0
     for now := range(clock.C) {
-        if !on {
 	    debug := i % 60 == 0
-            alarm := startTimes[now.Weekday()]
-            if alarm >= 0 {
-                if !alarmInProgress {
-                    todayAlarm = getStartOfDay(now).Add(alarm)
-                    alarmInProgress = true
-                }
-                if buttonPressed() || checkButtonFallingEdge() {
-                    todayAlarm = todayAlarm.Add(time.Minute)
-		    fmt.Println("Snoozing to ", todayAlarm)
-                }
-                difference := todayAlarm.Sub(now)
-                if difference > 0 {
-                    if difference < wakeUpLength {
-                        setLightBrightness(float64(difference) / float64(wakeUpLength))
-                    } else {
-			if alarmInProgress {
-				SetOnPublish(true)
-				alarmInProgress = false
-			} else if debug{
-				fmt.Println(difference, " to alarm")
-			}
-                    }
-                } else if debug {
-			fmt.Println(difference, " to alarm")
-		}
-            } else if debug {
+	    alarm := startTimes[now.Weekday()]
+	    if alarm >= 0 {
+		    if !alarmInProgress {
+			    todayAlarm = getStartOfDay(now).Add(alarm)
+			    fmt.Println("Alarm set for ",  todayAlarm)
+			    alarmInProgress = true
+		    }
+		    if buttonPressed() || checkButtonFallingEdge() {
+			    todayAlarm = todayAlarm.Add(time.Minute)
+			    fmt.Println("Snoozing to ", todayAlarm)
+		    }
+		    difference := todayAlarm.Sub(now)
+		    if difference > 0 {
+			    if difference < wakeUpLength {
+				    setLightBrightness((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength))
+			    } else {
+				    if alarmInProgress {
+					    SetOnPublish(true)
+					    alarmInProgress = false
+				    } else if debug{
+					    fmt.Println(-difference, " from alarm")
+				    }
+			    }
+		    } else if debug {
+			    fmt.Println(difference, " to alarm")
+		    }
+	    } else if debug {
 		    fmt.Println("No alarm for ", now.Weekday())
 	    }
-        }
-	i++
+	    i++
     }
 }
 
