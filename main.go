@@ -62,6 +62,7 @@ func waitForAlarms() {
     i := 0
     for now := range(clock.C) {
         if !on {
+	    debug := i % 60 == 0
             alarm := startTimes[now.Weekday()]
             if alarm >= 0 {
                 if !alarmInProgress {
@@ -76,14 +77,20 @@ func waitForAlarms() {
                 if difference > 0 {
                     if difference < wakeUpLength {
                         setLightBrightness(float64(difference) / float64(wakeUpLength))
-                    } else if alarmInProgress {
-                        SetOnPublish(true)
-                        alarmInProgress = false
+                    } else {
+			if alarmInProgress {
+				SetOnPublish(true)
+				alarmInProgress = false
+			} else if debug{
+				fmt.Println(difference, " to alarm")
+			}
                     }
-                } else if i % 60 == 0{
+                } else if debug {
 			fmt.Println(difference, " to alarm")
 		}
-            }
+            } else if debug {
+		    fmt.Println("No alarm for ", now.Weekday())
+	    }
         }
 	i++
     }
