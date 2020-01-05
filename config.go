@@ -3,7 +3,7 @@ package main
 import (
     "gopkg.in/yaml.v2"
     "os"
-    "fmt"
+    "errors"
 )
 
 type Config struct {
@@ -14,6 +14,8 @@ type Config struct {
     ZeroCrossPin int
 
     PullUp bool
+
+    LogLevel string
 
     Rest struct {
         Enabled bool
@@ -27,15 +29,21 @@ type Config struct {
     }
 }
 
-var Settings Config
+
+var Settings Config = Config{
+    ZeroCrossPin: -1,
+    LogLevel: "info",
+}
 
 func LoadConfig(location string) {
     file, err := os.Open(location)
     FatalErrorCheck(err)
-    fmt.Println("File read")
     decoder := yaml.NewDecoder(file)
     decoder.SetStrict(true)
     err = decoder.Decode(&Settings)
     FatalErrorCheck(err)
-    fmt.Println("Config read")
+    if Settings.LightPin == 0 || Settings.ButtonPin == 0 {
+        FatalErrorCheck(errors.New("lightpin or buttonpin unspecified"))
+    }
+
 }

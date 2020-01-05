@@ -1,17 +1,22 @@
-mock: false
+# mock: false
 lightpin: 19
 buttonpin: 4
 pullup: true
 
+# Options are "debug" or "info"
+# loglevel: "info"
+
 # Set to -1 for no zerocross
-zerocrosspin: -1
+# zerocrosspin: -1
 
-rest:
-    enabled: false
-    port: 5445
+# Rest is disabled by default
+# rest:
+#     enabled: false
+#     port: 5445
 
-mqtt:
-    enabled: true
-    broker: raspberrypi.local:1883
-    prefix: sunrise
-    clientid: sunrise
+# Mqtt is disabled by default
+# mqtt:
+#     enabled: true
+#     broker: raspberrypi.local:1883
+#     prefix: sunrise
+#     clientid: sunrise

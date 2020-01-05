@@ -3,7 +3,6 @@ package main
 import (
     "encoding/json"
     "github.com/gorilla/mux"
-    "fmt"
     "net/http"
     "strconv"
     "gobot.io/x/gobot/platforms/mqtt"
@@ -33,7 +32,6 @@ func closeApi() {
 }
 
 func initServer() {
-    fmt.Println("Starting api")
     router := mux.NewRouter()
     router.HandleFunc("/alarm/{day:[0-6]}", dayAlarmHandler)
     router.HandleFunc("/light", dayAlarmHandler)
@@ -42,13 +40,13 @@ func initServer() {
 
     go func() {
         if err := server.ListenAndServe(); err != nil {
-            fmt.Println(err)
+            FatalErrorCheck(err)
         }
     }()
 }
 
 func initMQTT() {
-    fmt.Println("MQTT starting")
+    Info.Println("MQTT starting")
     mqttAdaptor = mqtt.NewAdaptor(Settings.Mqtt.Broker, Settings.Mqtt.ClientID)
     err := mqttAdaptor.Connect()
     FatalErrorCheck(err)
@@ -87,7 +85,7 @@ func initMQTT() {
     })
     FatalErrorCheck(err)
 
-    fmt.Println("MQTT started")
+    Info.Println("MQTT started")
 }
 
 func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
@@ -100,7 +98,7 @@ func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
         err = json.NewDecoder(request.Body).Decode(&body)
         if err != nil {
             http.Error(response, err.Error(), http.StatusBadRequest)
-            fmt.Println(err)
+            Error.Println(err)
             return
         }
 
@@ -117,7 +115,7 @@ func LightHandler(response http.ResponseWriter, request *http.Request) {
         err := json.NewDecoder(request.Body).Decode(&body)
         if err != nil {
             http.Error(response, err.Error(), http.StatusBadRequest)
-            fmt.Println(err)
+            Error.Println(err)
             return
         }
         SetOn(body.On)
