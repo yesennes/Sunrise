@@ -18,5 +18,5 @@ pullup: true
 # mqtt:
 #     enabled: true
 #     broker: raspberrypi.local:1883
-#     prefix: sunrise
+#     deviceid: sunrise
 #     clientid: sunrise

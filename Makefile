@@ -2,7 +2,7 @@ export TARGET=pi@raspberrypi.local
 export TARGET_DIR=/home/pi/Downloads/sunrise
 
 .PHONY: build
-build: tags
+build:
 	go build
 
 .PHONY: buildpi

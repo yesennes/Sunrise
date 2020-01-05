@@ -24,7 +24,7 @@ type Config struct {
     Mqtt struct {
         Enabled bool
         Broker string
-        Prefix string
+        DeviceID string
         ClientID string
     }
 }
@@ -46,4 +46,10 @@ func LoadConfig(location string) {
         FatalErrorCheck(errors.New("lightpin or buttonpin unspecified"))
     }
 
+    if Settings.Mqtt.DeviceID == "" {
+        Settings.Mqtt.DeviceID = "sunrise"
+    }
+    if Settings.Mqtt.ClientID == "" {
+        Settings.Mqtt.ClientID = "sunrise"
+    }
 }

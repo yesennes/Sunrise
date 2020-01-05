@@ -33,23 +33,25 @@ as the only command line argument.
 
 ## MQTT Support
 
-All topics are prefixed with the prefix specified in the config file. You might sets this to
-`sunrise` or if your whole family uses Sunrises, `sunrise/asher`.
+Supports MQTT following the (Homie)[https://homieiot.github.io/] specification. 
+The device id is configurable in the config file. Both device id and client id default to 
+"sunrise".
+You might sets this if your whole family uses Sunrises, to something like `asher-sunrise`.
 
 ### Topics
 
-```[prefix]/on```
+```homie/[deviceid]/light/on```
 
 Turns the machine off it it recieves the 0 bit or the "0" character. Published on when
-the device changes its state, i.e. for button.
+the device changes its state, i.e. for button. Will cancel an alarm in progress
 
 ```
-[prefix]/alarm/[dayOfWeek]
+homie/[deviceid]/alarm/[dayOfWeek]
 ```
 
 Sets the end time of the alarm for the day of week, with 0 being Sunday and 6 being Friday.
 Takes a string like "9:00" or "21:00". Set it to -1:00 to disable the alarm for the day
 
-```[prefix]/wake-up-length```
+```home/[deviceid]/alarm/wake-up-length```
 
 Time before the alarm to begin the wake up. Takes a string like "1h30m", "15m" or "1h"
