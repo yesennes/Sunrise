@@ -6,7 +6,7 @@ Requires:
 
 - GNU make
 - go tested with 1.13
-- ssh and scp for deploying
+- ssh and rsync for deploying
 - MQTT broker optionally for MQTT use. Tested with Mosquitto 1.5.7
 - go-delve/delve optionally for debuging
 
@@ -23,7 +23,8 @@ hardware if your not on a pi.
 
 ## Deploying
 
-`make deploy` will cross-compile for the pi and scp it to downloads. `make run` will
+`make deploy [TARGET_DIR=/location]` will cross-compile for the pi and rsync it to `/location`.
+If location is not given, it will copy it to downloads. `make run TARGET_DIR=/location` will
 ssh in and run the program, though the ssh must be kept open to keep it running. Running
 as a service will be supported eventually.
 
@@ -47,7 +48,7 @@ the device changes its state, i.e. for button.
 ```
 
 Sets the end time of the alarm for the day of week, with 0 being Sunday and 6 being Friday.
-Takes a string like "9:00" or "21:00"
+Takes a string like "9:00" or "21:00". Set it to -1:00 to disable the alarm for the day
 
 ```[prefix]/wake-up-length```
 

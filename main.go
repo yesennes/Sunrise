@@ -8,6 +8,7 @@ import (
     "fmt"
     "bufio"
     "strconv"
+    "math"
 )
 
 var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
@@ -19,12 +20,14 @@ var startBrightness float64 = 0
 var on bool = false
 var alarmInProgress bool = false
 var currentBrightness float64 = -1
-
-var lastFlip = time.Now()
+var alarmCanceled = false
 
 var light rpio.Pin
 var button rpio.Pin
 var zerocross rpio.Pin
+
+var reader *bufio.Reader
+var textWritten = false
 
 func main() {
     fmt.Println("Starting Sunrise")
@@ -44,7 +47,7 @@ func main() {
     initApi()
     fmt.Println("Api started")
 
-    waitForAlarms()
+    handleTimeTransitions()
 }
 
 func test() {
@@ -57,48 +60,48 @@ func test() {
     light.DutyCycle(0, 32)
 }
 
-func waitForAlarms() {
+func handleTimeTransitions() {
     clock := time.NewTicker(time.Second)
     i := 0
     for now := range(clock.C) {
-	    debug := i % 60 == 0
-	    if debug {
-		    fmt.Println("Time is ", now)
-	    }
-	    alarm := startTimes[now.Weekday()]
-	    if alarm >= 0 {
-		    if !alarmInProgress {
-			    checkTodayAlarm := getStartOfDay(now).Add(alarm)
-			    if todayAlarm != checkTodayAlarm {
-				    todayAlarm = checkTodayAlarm
-				    fmt.Println("Alarm set for ",  todayAlarm)
-			    }
-		    }
-		    if buttonPressed() || checkButtonFallingEdge() {
-			    todayAlarm = todayAlarm.Add(time.Minute)
-			    fmt.Println("Snoozing to ", todayAlarm)
-		    }
-		    difference := todayAlarm.Sub(now)
-		    if difference > 0 {
-			    if difference < wakeUpLength {
-				    alarmInProgress = true
-				    setLightBrightness((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength))
-			    } else {
-				    if alarmInProgress {
-					    SetOnPublish(true)
-				    } else if debug{
-					    fmt.Println(-difference, " from alarm")
-				    }
-				    alarmInProgress = false
-			    }
-		    } else if debug {
-			    alarmInProgress = false
-			    fmt.Println(difference, " to alarm")
-		    }
-	    } else if debug {
-		    fmt.Println("No alarm for ", now.Weekday())
-	    }
-	    i++
+        debug := i % 60 == 0
+        if debug {
+            fmt.Println("Time is ", now)
+        }
+        if alarmInProgress {
+            difference := todayAlarm.Sub(now)
+            if debug {
+                fmt.Println(difference, " till alarm end")
+            }
+            if difference > 0 {
+                setLightBrightness(math.Max((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength), 0))
+            } else {
+                alarmInProgress = false
+                fmt.Println("Alarm finished")
+                SetOnPublish(true)
+            }
+        } else {
+            alarm := startTimes[now.Weekday()]
+            if alarm >= 0 {
+                checkTodayAlarm := getStartOfDay(now).Add(alarm)
+                if todayAlarm != checkTodayAlarm && checkTodayAlarm.After(now) {
+                    todayAlarm = checkTodayAlarm
+                    fmt.Println("Alarm set for ",  todayAlarm)
+                }
+                if todayAlarm.After(now) {
+                    tillAlarmStart := todayAlarm.Sub(now) - wakeUpLength
+                    if !alarmCanceled && tillAlarmStart < 0 {
+                        fmt.Println("Alarm starting")
+                        alarmInProgress = true
+                    } else if debug {
+                        fmt.Println(tillAlarmStart, " till alarm start")
+                    }
+                }
+            } else if debug {
+                fmt.Println("No alarm for ", now.Weekday())
+            }
+        }
+        i++
     }
 }
 
@@ -123,29 +126,40 @@ func SetAlarm(day int, input string) {
 
 
 func SetOn(newState bool) {
-    lastFlip = time.Now()
     fmt.Println("Light set to:", newState)
     on = newState
-    if !alarmInProgress {
-        if on {
-            setLightBrightness(1)
-        } else {
-            setLightBrightness(0)
-        }
+    if alarmInProgress {
+        fmt.Println("Cancelling alarm")
+        alarmCanceled = true
+        alarmInProgress = false
+        go func(){
+            now := time.Now()
+            alarm := startTimes[now.Weekday()]
+            unsnoozedAlarm := getStartOfDay(now).Add(alarm)
+            difference := unsnoozedAlarm.Sub(time.Now())
+            time.Sleep(difference)
+            alarmCanceled = false
+            fmt.Println("Finished cancelled alarm")
+        }()
+    }
+    if on {
+        setLightBrightness(1)
+    } else {
+        setLightBrightness(0)
     }
 }
 
 func SetOnBrightness(brightness float64) {
-        onBrightness = brightness
-        fmt.Println("Brightness set to: ", brightness)
-        if on {
-                setLightBrightness(brightness)
-        }
+    onBrightness = brightness
+    fmt.Println("Brightness set to: ", brightness)
+    if on {
+        setLightBrightness(brightness)
+    }
 }
 
 func SetStartBrightness(brightness float64) {
-        startBrightness = brightness
-        fmt.Println("Start brightness set to: ", startBrightness)
+    startBrightness = brightness
+    fmt.Println("Start brightness set to: ", startBrightness)
 }
 
 func initHardware() {
@@ -158,46 +172,72 @@ func initHardware() {
 
         button = rpio.Pin(Settings.ButtonPin)
         button.Mode(rpio.Input)
-	if Settings.PullUp {
-		button.Pull(rpio.PullUp)
-	} else {
-		button.Pull(rpio.PullDown)
-	}
-        button.Detect(rpio.FallEdge)
+        if Settings.PullUp {
+            button.Pull(rpio.PullUp)
+        } else {
+            button.Pull(rpio.PullDown)
+        }
 
         if Settings.ZeroCrossPin >= 0 {
             zerocross = rpio.Pin(Settings.ZeroCrossPin)
             zerocross.Mode(rpio.Input)
-            zerocross.Detect(rpio.FallEdge)
-	    if Settings.PullUp {
-		    zerocross.Pull(rpio.PullUp)
-	    } else {
-		    zerocross.Pull(rpio.PullDown)
-	    }
+            if Settings.PullUp {
+                zerocross.Pull(rpio.PullUp)
+            } else {
+                zerocross.Pull(rpio.PullDown)
+            }
             fmt.Println("Zero cross ", Settings.ZeroCrossPin)
         }
+    } else {
+        reader = bufio.NewReader(os.Stdin)
+        go func(){
+            for {
+                read, _ := reader.ReadString('\n')
+                if read == "a\n" {
+                    textWritten = true
+                } else {
+                    textWritten = false
+                }
+            }
+        }()
     }
-    go func() {
-	    ticker := time.NewTicker(time.Second / 60)
-	    for _ = range(ticker.C) {
-		    if (!alarmInProgress && checkButtonFallingEdge()) {
-			    if time.Now().Sub(lastFlip) > time.Second / 4 {
-				    fmt.Println("Button lastFlip")
-				    SetOnPublish(!on)
-			    }
-			    lastFlip = time.Now()
-		    }
-	    }
-	    //fmt.Println("Zerocross read", zerocross.Read())
-	    //if zerocross.EdgeDetected() {
-	    //    fmt.Println("Zerocross edge", zerocross.EdgeDetected())
-	    //}
-	    //fmt.Println("button read", button.Read())
-	    //if button.EdgeDetected() {
-	    //    fmt.Println("button edge", button.EdgeDetected())
-	    //}
-    }()
+    go processButtonPresses()
     setLightBrightness(0)
+}
+
+func processButtonPresses() {
+    heldFor := 0
+    ticker := time.NewTicker(time.Second / 60)
+    for _ = range(ticker.C) {
+        if (buttonPressed()) {
+            heldFor++
+        } else {
+            if heldFor > 4 {
+                if alarmInProgress {
+                    if heldFor > 5 * 60 {
+                        fmt.Println("Cancelling alarm...")
+                        SetOnPublish(false)
+                    } else {
+                        todayAlarm = todayAlarm.Add(time.Minute * 5)
+                        fmt.Println("Snoozing to ", todayAlarm)
+                    }
+                } else {
+                    fmt.Println("Button pressed, toggling stat")
+                    SetOnPublish(!on)
+                }
+            }
+            heldFor = 0
+        }
+    }
+    fmt.Println("proc done?")
+    //fmt.Println("Zerocross read", zerocross.Read())
+    //if zerocross.EdgeDetected() {
+    //    fmt.Println("Zerocross edge", zerocross.EdgeDetected())
+    //}
+    //fmt.Println("button read", button.Read())
+    //if button.EdgeDetected() {
+    //    fmt.Println("button edge", button.EdgeDetected())
+    //}
 }
 
 //Sets the brightness of the light with 1 being full on
@@ -227,14 +267,7 @@ func closeHardware() {
 func buttonPressed() bool {
     if !Settings.Mock {
         return (button.Read() == rpio.High)  == !Settings.PullUp
+    } else {
+        return textWritten
     }
-    return false
-}
-
-func checkButtonFallingEdge() bool {
-    if !Settings.Mock {
-        edge := button.EdgeDetected()
-        return edge
-    }
-    return false
 }
