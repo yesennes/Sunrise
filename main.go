@@ -88,13 +88,8 @@ func handleTimeTransitions() {
             if debug {
                 Debug.Println(difference, " till alarm end")
             }
-            if difference > 0 {
-                setLightBrightness(math.Max((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength), 0))
-            } else {
-                alarmInProgress = false
-                Info.Println("Alarm finished")
-                SetOnPublish(true)
-            }
+            setLightBrightness(math.Min(
+                math.Max((float64(wakeUpLength) - float64(difference)) / float64(wakeUpLength), 0), 1))
         } else {
             alarm := startTimes[now.Weekday()]
             if alarm >= 0 {
