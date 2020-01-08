@@ -11,7 +11,9 @@ import (
     "log"
 )
 
-var startTimes = [7]time.Duration{-1, -1, -1, -1, -1, -1, -1}
+var startTimes = [7]time.Duration{}
+var alarmOn = [7]bool{}
+
 var todayAlarm time.Time
 var wakeUpLength time.Duration = time.Hour
 var onBrightness float64 = 1
@@ -32,6 +34,8 @@ var textWritten = false
 var Info *log.Logger
 var Debug *log.Logger
 var Error *log.Logger
+
+var shutdown = false
 
 func main() {
     Info = log.New(os.Stdout, "Info ", log.LstdFlags)
@@ -79,6 +83,9 @@ func handleTimeTransitions() {
     clock := time.NewTicker(time.Second)
     i := 0
     for now := range(clock.C) {
+        if shutdown {
+            break
+        }
         debug := i % 60 == 0
         if debug {
             Debug.Println("Time is ", now)
@@ -96,8 +103,8 @@ func handleTimeTransitions() {
                 SetOnPublish(true)
             }
         } else {
-            alarm := startTimes[now.Weekday()]
-            if alarm >= 0 {
+            if alarmOn[now.Weekday()] {
+                alarm := startTimes[now.Weekday()]
                 checkTodayAlarm := getStartOfDay(now).Add(alarm)
                 if todayAlarm != checkTodayAlarm && checkTodayAlarm.After(now) {
                     todayAlarm = checkTodayAlarm
@@ -139,6 +146,14 @@ func SetAlarm(day time.Weekday, input string) {
     Info.Println(day, " set to:", startTimes[day])
 }
 
+func SetAlarmOn(day time.Weekday, on bool) {
+    alarmOn[day] = on
+    if on {
+        Info.Println(day, " alarm turned on")
+    } else {
+        Info.Println(day, " alarm turned off")
+    }
+}
 
 func SetOn(newState bool) {
     Info.Println("Light set to:", newState)
@@ -206,7 +221,7 @@ func initHardware() {
     } else {
         reader = bufio.NewReader(os.Stdin)
         go func(){
-            for {
+            for !shutdown {
                 read, _ := reader.ReadString('\n')
                 if read == "a\n" {
                     textWritten = true
@@ -224,6 +239,9 @@ func processButtonPresses() {
     heldFor := 0
     ticker := time.NewTicker(time.Second / 60)
     for _ = range(ticker.C) {
+        if shutdown {
+            break;
+        }
         if (buttonPressed()) {
             heldFor++
         } else {

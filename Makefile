@@ -28,7 +28,7 @@ deploy: buildpi
 run: deploy
 	ssh $(TARGET) sudo $(TARGET_DIR)
 
-tags:
+tags: *.go
 	(ctags -R . &)
 
 clean:

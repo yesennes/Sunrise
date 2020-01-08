@@ -86,47 +86,66 @@ func initMQTTTopics(client mqtt.Client) {
     subscribe("/light/on", func(client mqtt.Client, msg mqtt.Message) {
         on, _ := strconv.ParseBool(string(msg.Payload()))
         SetOn(on)
-        msg.Ack()
     })
 
     publish("/light/brightness/$name", "Brightness")
     publish("/light/brightness/$datatype", "float")
     publish("/light/brightness/$settable", "true")
-    publish("/light/brightness/$format", "0:1")
+    publish("/light/brightness/$format", "0:100")
     publish("/light/brightness/$unit", "%")
 
     subscribe("/light/brightness", func(client mqtt.Client, msg mqtt.Message) {
         bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
-		ErrorCheck(err)
-		SetOnBrightnessPublish(bright)
+		if ! ErrorCheck(err) {
+            SetOnBrightnessPublish(bright / 100)
+        }
     })
 
     publish("/alarm/$name", "Alarm")
     publish("/alarm/$type", "")
 
-    allDays := make([]string, 7)
+    properties := make([]string, 15)
     for i := time.Sunday; i <= time.Saturday; i++ {
-        str := i.String()
+        //Local variable for use in handlers
+        day := i
+        str := day.String()
 
-        allDays[i] = str
+        properties = append(properties, str)
 
         publish("/alarm/" + str + "/$name", "Alarm for " + str)
-        publish("/light/" + str + "/$datatype", "string")
-        publish("/light/" + str + "/$settable", "true")
-        publish("/light/" + str + "/$unit", "time of day")
+        publish("/alarm/" + str + "/$datatype", "string")
+        publish("/alarm/" + str + "/$settable", "true")
+        publish("/alarm/" + str + "/$unit", "time of day")
 
-        subscribe("/alarm/" + i.String(), func(client mqtt.Client, msg mqtt.Message) {
-            SetAlarm(i, string(msg.Payload()))
+        subscribe("/alarm/" + str, func(client mqtt.Client, msg mqtt.Message) {
+            SetAlarm(day, string(msg.Payload()))
+        })
+
+        onStr := day.String() + "Enabled"
+        properties = append(properties, onStr)
+
+
+        publish("/alarm/" + onStr + "/$name", "Alarm for " + str + " on")
+        publish("/alarm/" + onStr + "/$datatype", "boolean")
+        publish("/alarm/" + onStr + "/$settable", "true")
+
+        subscribe("/alarm/" + onStr, func(client mqtt.Client, msg mqtt.Message) {
+            on, err := strconv.ParseBool(string(msg.Payload()))
+            if !ErrorCheck(err) {
+                SetAlarmOn(day, on)
+            }
         })
     }
 
-    publish("/alarm/$properties", strings.Join(allDays, ",") + ",wake-up-length")
+    properties = append(properties, "wake-up-length")
 
-    publish("/light/wake-up-length/$name", "Alarm Dimming Time")
-    publish("/light/wake-up-length/$datatype", "integer")
-    publish("/light/wake-up-length/$settable", "true")
-    publish("/light/wake-up-length/$unit", "minutes")
-    subscribe("/wake-up-length", func(client mqtt.Client, msg mqtt.Message) {
+    publish("/alarm/$properties", strings.Join(properties, ","))
+
+    publish("/alarm/wake-up-length/$name", "Alarm Dimming Time")
+    publish("/alarm/wake-up-length/$datatype", "integer")
+    publish("/alarm/wake-up-length/$settable", "true")
+    publish("/alarm/wake-up-length/$unit", "minutes")
+    subscribe("/alarm/wake-up-length", func(client mqtt.Client, msg mqtt.Message) {
         SetWakeUpLength(string(msg.Payload()))
     })
 
@@ -141,15 +160,16 @@ func publish(topic string, payload interface{}){
 
 func subscribe(topic string, handler mqtt.MessageHandler) {
     checkMQTTError(mqttClient.Subscribe(prefix + topic + "/set", 1, func(client mqtt.Client, msg mqtt.Message) {
+        defer dontPanic(topic)
+        msg.Ack()
         handler(client, msg)
         publish(topic, msg.Payload())
-        msg.Ack()
     }))
 
     checkMQTTError(mqttClient.Subscribe(prefix + topic, 1, func(client mqtt.Client, msg mqtt.Message) {
-        handler(client, msg)
-        checkMQTTError(mqttClient.Unsubscribe(prefix + topic))
+        defer dontPanic(topic)
         msg.Ack()
+        handler(client, msg)
     }))
 }
 
@@ -209,6 +229,13 @@ func checkMQTTError(token mqtt.Token) mqtt.Token {
         ErrorCheck(token.Error())
     }()
     return token
+}
+
+func dontPanic(location string) {
+    r := recover()
+    if r != nil {
+        Error.Println(location, r)
+    }
 }
 
 func closeServer() {
