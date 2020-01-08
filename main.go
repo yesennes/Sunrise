@@ -131,7 +131,7 @@ func SetWakeUpLength(input string) {
     Info.Println("Wake up length set to " + wakeUpLength.String())
 }
 
-func SetAlarm(day int, input string) {
+func SetAlarm(day time.Weekday, input string) {
     alarm := strings.Split(input, ":")
     hour, _ := strconv.Atoi(alarm[0])
     minute, _ := strconv.Atoi(alarm[1])

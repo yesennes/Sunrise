@@ -1,19 +1,20 @@
 package main
 
 import (
+    "strings"
+    "time"
     "encoding/json"
     "github.com/gorilla/mux"
     "net/http"
     "strconv"
     "github.com/eclipse/paho.mqtt.golang"
-    "strings"
 )
 
 
 var mqttClient mqtt.Client
 var server http.Server
 
-var prefix = "homie/" + Settings.Mqtt.DeviceID
+var prefix string
 
 func initApi() {
     if Settings.Rest.Enabled {
@@ -25,10 +26,12 @@ func initApi() {
 }
 
 func closeApi() {
+    Info.Println("Shutting down api")
     if Settings.Rest.Enabled {
         closeServer()
     }
     if Settings.Mqtt.Enabled {
+        publish("/$state", "disconnected")
         mqttClient.Disconnect(50)
     }
 }
@@ -48,9 +51,8 @@ func initServer() {
 }
 
 func initMQTT() {
+    prefix = "homie/" + Settings.Mqtt.DeviceID
     Info.Println("MQTT starting")
-    prefix := "homie/" + Settings.Mqtt.DeviceID
-
     options := mqtt.NewClientOptions()
     options.AddBroker(Settings.Mqtt.Broker)
     options.SetClientID(Settings.Mqtt.ClientID)
@@ -81,42 +83,54 @@ func initMQTTTopics(client mqtt.Client) {
     publish("/light/on/$datatype", "boolean")
     publish("/light/on/$settable", "true")
 
-    subscribe("/light/on/set", func(client mqtt.Client, msg mqtt.Message) {
-        if msg.Payload()[0] != 0 && msg.Payload()[0] != '0' {
-            SetOn(true)
-        } else {
-            SetOn(false)
-        }
+    subscribe("/light/on", func(client mqtt.Client, msg mqtt.Message) {
+        on, _ := strconv.ParseBool(string(msg.Payload()))
+        SetOn(on)
         msg.Ack()
     })
 
-    publish("/light/on/$name", "Brightness")
-    publish("/light/on/$datatype", "float")
-    publish("/light/on/$settable", "true")
-    publish("/light/on/$format", "0:1")
+    publish("/light/brightness/$name", "Brightness")
+    publish("/light/brightness/$datatype", "float")
+    publish("/light/brightness/$settable", "true")
+    publish("/light/brightness/$format", "0:1")
+    publish("/light/brightness/$unit", "%")
 
-    subscribe("/light/brightness/set", func(client mqtt.Client, msg mqtt.Message) {
-			bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
+    subscribe("/light/brightness", func(client mqtt.Client, msg mqtt.Message) {
+        bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
 		ErrorCheck(err)
 		SetOnBrightnessPublish(bright)
-        msg.Ack()
     })
 
-    subscribe("/alarm/+", func(client mqtt.Client, msg mqtt.Message) {
-        topic := strings.Split(msg.Topic(), "/")
-        day, err := strconv.Atoi(topic[len(topic) - 1])
-        if ErrorCheck(err) {
-            return
-        }
-        SetAlarm(day, string(msg.Payload()))
-        msg.Ack()
-    })
+    publish("/alarm/$name", "Alarm")
+    publish("/alarm/$type", "")
 
-    subscribe("/wake-length", func(client mqtt.Client, msg mqtt.Message) {
+    allDays := make([]string, 7)
+    for i := time.Sunday; i <= time.Saturday; i++ {
+        str := i.String()
+
+        allDays[i] = str
+
+        publish("/alarm/" + str + "/$name", "Alarm for " + str)
+        publish("/light/" + str + "/$datatype", "string")
+        publish("/light/" + str + "/$settable", "true")
+        publish("/light/" + str + "/$unit", "time of day")
+
+        subscribe("/alarm/" + i.String(), func(client mqtt.Client, msg mqtt.Message) {
+            SetAlarm(i, string(msg.Payload()))
+        })
+    }
+
+    publish("/alarm/$properties", strings.Join(allDays, ",") + ",wake-up-length")
+
+    publish("/light/wake-up-length/$name", "Alarm Dimming Time")
+    publish("/light/wake-up-length/$datatype", "integer")
+    publish("/light/wake-up-length/$settable", "true")
+    publish("/light/wake-up-length/$unit", "minutes")
+    subscribe("/wake-up-length", func(client mqtt.Client, msg mqtt.Message) {
         SetWakeUpLength(string(msg.Payload()))
-        msg.Ack()
     })
 
+    publish("/$state", "ready")
     Info.Println("MQTT started")
 }
 
@@ -126,7 +140,17 @@ func publish(topic string, payload interface{}){
 }
 
 func subscribe(topic string, handler mqtt.MessageHandler) {
-    checkMQTTError(mqttClient.Subscribe(prefix + topic, 1, handler))
+    checkMQTTError(mqttClient.Subscribe(prefix + topic + "/set", 1, func(client mqtt.Client, msg mqtt.Message) {
+        handler(client, msg)
+        publish(topic, msg.Payload())
+        msg.Ack()
+    }))
+
+    checkMQTTError(mqttClient.Subscribe(prefix + topic, 1, func(client mqtt.Client, msg mqtt.Message) {
+        handler(client, msg)
+        checkMQTTError(mqttClient.Unsubscribe(prefix + topic))
+        msg.Ack()
+    }))
 }
 
 func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
@@ -143,7 +167,7 @@ func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
             return
         }
 
-        SetAlarm(day, body.Time)
+        SetAlarm(time.Weekday(day), body.Time)
     }
 }
 
@@ -179,11 +203,12 @@ func SetOnBrightnessPublish(brightness float64) {
     publish("/light/brightness", strconv.FormatFloat(brightness, 'f', -1, 64))
 }
 
-func checkMQTTError(token mqtt.Token) {
+func checkMQTTError(token mqtt.Token) mqtt.Token {
     go func(){
         token.Wait()
         ErrorCheck(token.Error())
     }()
+    return token
 }
 
 func closeServer() {
