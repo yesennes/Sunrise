@@ -54,6 +54,7 @@ func initMQTT() {
     prefix := Settings.Mqtt.Prefix
 
     _, err = mqttAdaptor.OnWithQOS(prefix + "/on", 1, func(msg mqtt.Message) {
+	defer dontPanic()
         if msg.Payload()[0] != 0 && msg.Payload()[0] != '0' {
             SetOn(true)
         } else {
@@ -64,6 +65,7 @@ func initMQTT() {
     FatalErrorCheck(err)
 
     _, err = mqttAdaptor.OnWithQOS(prefix + "/alarm/+", 1, func(msg mqtt.Message) {
+	defer dontPanic()
         topic := strings.Split(msg.Topic(), "/")
         day, err := strconv.Atoi(topic[len(topic) - 1])
         if ErrorCheck(err) {
@@ -74,11 +76,13 @@ func initMQTT() {
     FatalErrorCheck(err)
 
     _, err = mqttAdaptor.OnWithQOS(prefix + "/wake-up-length", 1, func(msg mqtt.Message) {
+	defer dontPanic()
         SetWakeUpLength(string(msg.Payload()))
     })
     FatalErrorCheck(err)
 
     _, err = mqttAdaptor.OnWithQOS(prefix + "/brightness", 1, func(msg mqtt.Message) {
+	defer dontPanic()
 			bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
 		ErrorCheck(err)
 		SetOnBrightness(bright)
@@ -89,6 +93,7 @@ func initMQTT() {
 }
 
 func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
+	defer dontPanic()
     if request.Method == "PUT" {
         day, err := strconv.Atoi(mux.Vars(request)["day"])
         var body struct {
@@ -107,6 +112,7 @@ func dayAlarmHandler(response http.ResponseWriter, request *http.Request){
 }
 
 func LightHandler(response http.ResponseWriter, request *http.Request) {
+	defer dontPanic()
     if request.Method == "PUT" {
         var body struct {
             On bool
@@ -131,6 +137,13 @@ func SetOnPublish(on bool) {
         toPub = []byte{'0'}
     }
     mqttAdaptor.PublishWithQOS(Settings.Mqtt.Prefix + "/on", 1, toPub)
+}
+
+func dontPanic(location string) {
+    r := recover()
+    if r != nil {
+        Error.Println(location, r)
+    }
 }
 
 func closeServer() {
