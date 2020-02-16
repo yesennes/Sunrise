@@ -133,8 +133,8 @@ func getStartOfDay(t time.Time) time.Time {
 }
 
 
-func SetWakeUpLength(input string) {
-    wakeUpLength, _ = time.ParseDuration(input)
+func SetWakeUpLength(input time.Duration) {
+    wakeUpLength = input
     Info.Println("Wake up length set to " + wakeUpLength.String())
 }
 

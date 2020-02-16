@@ -97,7 +97,7 @@ func initMQTTTopics(client mqtt.Client) {
     subscribe("/light/brightness", func(client mqtt.Client, msg mqtt.Message) {
         bright, err := strconv.ParseFloat(string(msg.Payload()), 64)
 		if ! ErrorCheck(err) {
-            SetOnBrightnessPublish(bright / 100)
+            SetOnBrightnessPublish(bright)
         }
     })
 
@@ -146,7 +146,10 @@ func initMQTTTopics(client mqtt.Client) {
     publish("/alarm/wake-up-length/$settable", "true")
     publish("/alarm/wake-up-length/$unit", "minutes")
     subscribe("/alarm/wake-up-length", func(client mqtt.Client, msg mqtt.Message) {
-        SetWakeUpLength(string(msg.Payload()))
+        input, err := strconv.ParseFloat(string(msg.Payload()), 64)
+        if !ErrorCheck(err) {
+            SetWakeUpLength(time.Duration(input * float64(time.Minute)))
+        }
     })
 
     publish("/$state", "ready")
@@ -164,12 +167,6 @@ func subscribe(topic string, handler mqtt.MessageHandler) {
         msg.Ack()
         handler(client, msg)
         publish(topic, msg.Payload())
-    }))
-
-    checkMQTTError(mqttClient.Subscribe(prefix + topic, 1, func(client mqtt.Client, msg mqtt.Message) {
-        defer dontPanic(topic)
-        msg.Ack()
-        handler(client, msg)
     }))
 }
 
@@ -219,7 +216,7 @@ func SetOnPublish(on bool) {
 }
 
 func SetOnBrightnessPublish(brightness float64) {
-    SetOnBrightness(brightness)
+    SetOnBrightness(brightness / 100.0)
     publish("/light/brightness", strconv.FormatFloat(brightness, 'f', -1, 64))
 }
 
